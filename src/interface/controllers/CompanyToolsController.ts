@@ -12,6 +12,29 @@ export class CompanyToolsController {
 
   private registerTools(): void {
     this.registerListCompaniesToolHandler();
+    this.registerGetCompanyServicesToolHandler()
+  }
+
+  private registerGetCompanyServicesToolHandler(): void {
+    this.server.tool(
+      "get_company_services",
+      "List all avaiable services of a company from Filazero using its slug",
+      {
+        slug: z.string().describe("Company slug")
+      },
+      async ({slug}) => {
+        const responseServiceText = await this.companyService.getCompanyServices(slug)
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: responseServiceText
+            }
+          ]
+        }
+      }
+    )
   }
 
   private registerListCompaniesToolHandler(): void {
@@ -42,4 +65,6 @@ export class CompanyToolsController {
       }
     );
   }
+
+
 }
