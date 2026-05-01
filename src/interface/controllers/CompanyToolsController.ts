@@ -70,7 +70,7 @@ export class CompanyToolsController {
   private registerGetAvailableDatesToolHandler(): void {
     this.server.tool(
       "get_available_dates",
-      "Get available dates for a service",
+      "Get available dates for a service. Usa o ID do serviço (usar o campo 'id' retornado pela ferramenta get_company_services, NÃO usar abstractServiceId)",
       {
         slug: z.string().describe("Company slug"),
         serviceId: z.number().describe("Service ID"),
