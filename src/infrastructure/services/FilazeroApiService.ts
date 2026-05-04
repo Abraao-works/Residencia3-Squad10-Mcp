@@ -25,43 +25,73 @@ export class FilazeroApiService {
   };
   }
 
-  async getCompanies(): Promise<Company[]> {
-    const response = await fetch(`${this.BASE_URL}/api/companies`, {headers: this.getHeaders()});
+  // Em cenario de Conexão Recusada tenta 3 vezes com backoff exponencial
+  private async fetchWithBackoff(url: string): Promise<Response> {
+    let delay = 1000;
+    const MAX_RETRIES = 3;
 
-    if (!response.ok) {
-      throw new Error(`Erro HTTP ao buscar empresas: ${response.status}`);
+    // Regra 2 Content-Type com charset UTF-8
+    const options: RequestInit = {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://app.filazero.net",
+        "Referer": "https://app.filazero.net/",
+        "User-Agent": "MCP-Server-FilaZero/1.0",
+        "DNT": "1",
+      },
+    };
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(url, options);
+
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+
+        return response;
+      } catch (error) {
+        if (attempt < MAX_RETRIES) {
+           await new Promise((resolve) => setTimeout(resolve, delay)); // Espera antes de tentar novamente
+           delay *= 2;
+           console.warn(`Tentando novamente... (tentativa ${attempt + 1})`);
+        }
+      }
     }
+    
+    throw new Error("Serviço Filazero temporariamente indisponível.");
+  }
 
-    const data = await response.json();
+  async getCompanies(): Promise<Company[]> {
+    try {
+      const response = await this.fetchWithBackoff(`${this.BASE_URL}/api/companies`);
 
-    return data
+      const data = await response.json();
+
+      return data
+    } catch (error) {
+        console.error(`Erro HTTP ao buscar empresas: `, error);
+        return []
+    }
   }
 
   async getCompanyServices(slug: string): Promise<Service[]> {
     try {
-        const response = await fetch(`${this.BASE_URL}/api/companies/${slug}/services`, {headers: this.getHeaders()})
-
-        if (!response.ok) {
-          throw new Error(`Erro HTTP ao buscar serviços da empresa com slug ${slug}: ${response.status}`);
-        }
+        const response = await this.fetchWithBackoff(`${this.BASE_URL}/api/companies/${slug}/services`)
 
         const data = await response.json();
 
         return data.services
     } catch (error) {
       console.error(`Erro HTTP ao buscar serviços da empresa com slug ${slug}:`, error)
-
       return []
     }
   }
 
   async getAvailableDates(slug: string, serviceId: number): Promise<AvailableDate[]> {
     try {
-      const response = await fetch(`${this.BASE_URL}/v2/scheduling/self-service/providers/${slug}/services/${serviceId}/available-session-days`, {headers: this.getHeaders()});
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`)
-      }
+      const response = await this.fetchWithBackoff(`${this.BASE_URL}/v2/scheduling/self-service/providers/${slug}/services/${serviceId}/available-session-days`);
 
       return await response.json();
     } catch (error) {
