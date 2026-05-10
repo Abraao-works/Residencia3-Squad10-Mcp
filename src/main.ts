@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { FilazeroApiService } from "./infrastructure/services/FilazeroApiService.js";
 import { CompanyService } from "./application/services/CompanyService.js";
 import { CompanyToolsController } from "./interface/controllers/CompanyToolsController.js";
+import { TicketService } from "./application/services/TicketService.js";
 
 async function main() {
   const server = new McpServer({
@@ -13,9 +14,10 @@ async function main() {
 
   const apiService = new FilazeroApiService();
   const companyService = new CompanyService(apiService);
-
+  const ticketService = new TicketService(apiService);
+  
   // Registrar tools
-  new CompanyToolsController(server, companyService);
+  new CompanyToolsController(server, companyService, ticketService);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
