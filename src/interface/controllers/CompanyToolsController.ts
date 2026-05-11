@@ -16,6 +16,9 @@ export class CompanyToolsController {
     this.registerGetAvailableDatesToolHandler();
     this.registerGetBusinessUnitsToolHandler();
     this.registerGetAvailableSessionsToolHandler();
+    this.registerGetBookingFormToolHandler();
+    this.registerScheduleAppointmentToolHandler();
+    this.registerListMyTicketsToolHandler
   }
 
   private registerGetCompanyServicesToolHandler(): void {
@@ -93,26 +96,26 @@ export class CompanyToolsController {
   }
 
   private registerGetBusinessUnitsToolHandler(): void {
-  this.server.tool(
-    "get_business_units",
-    "List all available business units (locations) for a company",
-    {
-      slug: z.string().describe("Company slug"),
-    },
-    async ({ slug }) => {
-      const result = await this.companyService.getBusinessUnits(slug);
+    this.server.tool(
+      "get_business_units",
+      "List all available business units (locations) for a company",
+      {
+        slug: z.string().describe("Company slug"),
+      },
+      async ({ slug }) => {
+        const result = await this.companyService.getBusinessUnits(slug);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: result,
-          },
-        ],
-      };
-    }
-  );
-}
+        return {
+          content: [
+            {
+              type: "text",
+              text: result,
+            },
+          ],
+        };
+      }
+    );
+  }
 
   private registerGetAvailableSessionsToolHandler(): void {
     this.server.tool(
@@ -140,6 +143,156 @@ export class CompanyToolsController {
             }
           ]
         };
+      }
+    );
+  }
+
+  private registerGetBookingFormToolHandler(): void {
+    this.server.tool(
+      "get_booking_form",
+      "Retorna os campos necessários para preencher o agendamento",
+      {
+        providerId: z.number(),
+        sessionId: z.number(),
+      },
+      async ({ providerId, sessionId }) => {
+        try {
+          const form = await this.companyService.getBookingForm(
+            providerId,
+            sessionId
+          );
+
+          // formatação simples para leitura da IA
+          const text = form
+            .map((f: any) => `- ${f.label} (${f.type})`)
+            .join("\n");
+
+          return {
+            content: [{ type: "text", text }],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              { type: "text", text: `Erro ao buscar formulário: ${error.message}` },
+            ],
+          };
+        }
+      }
+    );
+  }
+
+  private registerScheduleAppointmentToolHandler(): void {
+    this.server.tool(
+      "schedule_appointment",
+      "Realiza o agendamento e cria um ticket",
+      {
+        body: z.object({
+          companyId: z.number().optional(),
+          serviceId: z.number(),
+          locationId: z.number(),
+          date: z.string(),
+          time: z.string(),
+          customerName: z.string(),
+          customerPhone: z.string(),
+        }).describe("Dados do agendamento"),
+        token: z.string().describe("Bearer token do usuário"),
+      },
+      async ({ body, token }) => {
+        try {
+          const result = await this.companyService.scheduleAppointment(
+            body,
+            token
+          );
+
+          // retorno simplificado
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Agendamento realizado com sucesso. Ticket: ${result.ticketId || "N/A"}`,
+              },
+            ],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              { type: "text", text: `Erro ao agendar: ${error.message}` },
+            ],
+          };
+        }
+      }
+    );
+  }
+
+  private registerListMyTicketsToolHandler(): void {
+    this.server.tool(
+      "list_my_tickets",
+      "Lista os agendamentos de um cliente",
+
+      {
+        document: z.string().describe("CPF do cliente"),
+      },
+
+      async ({ document }) => {
+
+        try {
+
+          const tickets =
+            await this.companyService.listMyTickets(document);
+
+          // sem tickets
+          if (!tickets.length) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Nenhum agendamento encontrado.",
+                },
+              ],
+            };
+          }
+
+          // formatação amigável
+          const text = tickets
+            .map((t: any) => {
+
+              const date = new Date(t.date)
+                .toLocaleString("pt-BR");
+
+              return (
+                `Protocolo: ${t.protocol}\n` +
+                `Serviço: ${t.service}\n` +
+                `Data: ${date}\n` +
+                `Profissional: ${t.professional || "Não informado"}\n` +
+                `Unidade: ${t.unit || "Não informada"}\n` +
+                `Status: ${t.status}`
+              );
+
+            })
+            .join("\n\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text,
+              },
+            ],
+          };
+
+        } catch (error: any) {
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Erro ao buscar agendamentos: ${error.message}`,
+              },
+            ],
+          };
+
+        }
+
       }
     );
   }

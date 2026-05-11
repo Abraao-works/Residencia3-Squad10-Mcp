@@ -107,90 +107,107 @@ export class CompanyService {
 
   async getAvailableSessions(
   slug: string,
-  service: number, // ID do serviço
+  serviceId: number,
   locationId: number,
   date: string
-): Promise<string> {
-  try {
-    //chamar a API para obter as sessões disponíveis
-    const data = await this.apiService.getAvailableSessions(slug, service, locationId);
+): Promise<any> {
 
-    if (!data) {
-      return "não foi possivel obter dados de sessões";
-    }
+  // busca dados na API
+  const data = await this.apiService.getAvailableSessions(
+    slug,
+    locationId,
+    serviceId,
+    date
+  );
 
-    const ressources = data.resources || [];
-    const sessions = data.sessions || [];
+  const resources = data.resources || [];
+  const sessions = data.sessions || [];
 
-    //normaliza data para comparação
-    const normalizedDate = new Date(date).toLocaleDateString("sv-SE");
+  // normaliza data recebida
+  const normalizedDate = new Date(date).toLocaleDateString("sv-SE");
 
-    //filtra sessões pela data escolhida
-    const filteredSessions = sessions.filter((s: any) => {
-      const sessionDate = new Date(s.date).toLocaleDateString("sv-SE");
-      return sessionDate === normalizedDate;
-    });
+  // filtra sessões válidas da data
+  const availableSessions = sessions.filter((s: any) => {
 
-    let response = "";
+    const sessionDate = new Date(s.startDate)
+      .toLocaleDateString("sv-SE");
 
-    //profissionais
-    response += "Profissionais disponíveis:\n\n";
-    if (!ressources.length) {
-      response += "Nenhum profissional disponível;\n\n";
-    } else {
-      ressources.forEach((r: any) => {
-        response += `- ${r.name} (id: ${r.id})\n`;
-      });
-      response += "\n";
-    }
-
-    //horários
-    response += "Horários disponíveis:\n\n";
-    //caso 1: sem sessões no geral
-    if (!sessions.length) {
-      response += 
-      "Foram encontrados profissionais para este serviço, porém não há horários disponíveis para a data selecionada.\n\n" +
-        "Isso pode ocorrer porque:\n" +
-        "- não há agenda configurada no ambiente de teste\n" +
-        "- ou não existem horários liberados para este dia\n\n" +
-        "Sugestão:\n" +
-        "- tente outra data com disponibilidade\n" +
-        "- ou consulte os dias disponíveis usando a ferramenta get_available_dates";
-
-      return response;
-    }
-    // caso 2: tem sessões, mas não nessa data
-    if (!filteredSessions.length) {
-      response +=
-        "Não há horários disponíveis para a data selecionada.\n\n" +
-        "Sugestão:\n" +
-        "- tente outra data com vagas disponíveis\n" +
-        "- utilize a ferramenta get_available_dates para consultar os dias disponíveis";
-
-      return response;
-    }
-    // caso 3: sucesso
-    filteredSessions.forEach((s: any) => {
-      const time = new Date(s.date).toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      response += `- ${time}\n`;
-    });
-
-    return response;
-
-  } catch (error) {
-    //erro controlado
     return (
-      "Erro ao buscar sessões disponíveis.\n\n" +
-      "Possíveis causas:\n" +
-      "- instabilidade na API\n" +
-      "- parâmetros inválidos\n\n" +
-      "Tente novamente ou escolha outra data."
+      sessionDate === normalizedDate &&
+      s.hasSlotLeft === true &&
+      s.blocked !== true
     );
+  });
+
+  // estrutura profissionais + horários
+  const professionals = resources.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+
+    times: availableSessions
+      .filter((s: any) => s.resourceId === r.id)
+      .map((s: any) =>
+        new Date(s.startDate).toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      ),
+  }));
+
+  return {
+    date,
+    hasAvailability: availableSessions.length > 0,
+    professionals,
+  };
+}
+
+  // Retorna os campos necessários para preencher o agendamento
+  async getBookingForm(providerId: number, sessionId: number) {
+    const response = await this.apiService.getBookingForm(providerId, sessionId);
+    const data = await response.json();
+
+    // API pode retornar erro dentro de "messages"
+    if (data.messages?.length) {
+      const err = data.messages.find((m: any) => m.type === "ERROR");
+      if (err) throw new Error(err.description);
+    }
+
+    // Retorna campos crus (controller decide como mostrar)
+    return data;
   }
+
+  // Realiza o agendamento criando um ticket
+  async scheduleAppointment(body: any, token: string) {
+    const response = await this.apiService.scheduleAppointment(body, token);
+    const data = await response.json();
+
+    // tratamento de erro da API
+    if (data.messages?.length) {
+      const err = data.messages.find((m: any) => m.type === "ERROR");
+      if (err) throw new Error(err.description);
+    }
+
+    return data;
+  }
+
+  async listMyTickets(document: string): Promise<any[]> {
+
+    const tickets = await this.apiService.listMyTickets(document);
+
+    // garante array válido
+    if (!tickets || !Array.isArray(tickets)) {
+      return [];
+    }
+
+    // padroniza os dados
+    return tickets.map((ticket: any) => ({
+      protocol: ticket.protocol,
+      service: ticket.serviceName,
+      date: ticket.date,
+      status: ticket.status,
+      professional: ticket.resourceName,
+      unit: ticket.locationName,
+    }));
 }
 
 }
