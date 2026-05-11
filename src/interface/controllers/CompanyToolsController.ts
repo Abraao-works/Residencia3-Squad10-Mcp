@@ -1,19 +1,24 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { CompanyService } from "../../application/services/CompanyService.js";
+import { CompanyService } from "../../application/services/CompanyService.js"
+import {getFormularioService} from "../../application/services/formularioService.js";
+import { TicketService } from "../../application/services/TicketService.js";
 
 export class CompanyToolsController {
   constructor(
     private server: McpServer,
-    private companyService: CompanyService
+    private companyService: CompanyService,
+    private ticketService: TicketService
   ) {
     this.registerTools();
   }
 
   private registerTools(): void {
     this.registerListCompaniesToolHandler();
-    this.registerGetCompanyServicesToolHandler()
-    this.registerGetAvailableDatesToolHandler()
+    this.registerGetCompanyServicesToolHandler();
+    this.registerGetAvailableDatesToolHandler();
+    this.registerGetFormularioToolHandler();
+    this.registerGetTicketStatusToolHandler();
   }
 
   private registerGetCompanyServicesToolHandler(): void {
@@ -89,4 +94,50 @@ export class CompanyToolsController {
       }
     )
   }
+  private registerGetFormularioToolHandler(): void {
+  this.server.tool(
+      "get_formulario_services",
+      "Get formulario for a service",
+      {
+        providerId: z.number().describe("Provider ID"),
+        sessionId: z.number().describe("Session ID")
+      },
+      async ({providerId, sessionId}) => {
+        const result = await getFormularioService(providerId, sessionId)
+        const text = result.map((f: any) => `Id: ${f.id} \n Nome: ${f.name} \n Description: ${f.description}`).join("\n\n")
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: text 
+            }
+          ]
+        }
+      }
+    )
+  }
+
+    private registerGetTicketStatusToolHandler(): void {
+    this.server.tool(
+      "get_ticket_status",
+      "Get the status of a ticket using its access key",
+      {
+        accessKey: z.string().describe("Ticket access key"),
+      },
+      async ({accessKey}) => {
+        const status = await this.ticketService.getTicketStatus(accessKey);
+      
+        return {
+          content: [
+            {
+              type: "text",
+              text: status
+            }
+          ]
+        }
+      }
+    )
+  }
+
 }

@@ -99,4 +99,32 @@ export class FilazeroApiService {
       return [];
     }
   }
+  // resposta bruta da api, vem o corpo json completo 
+  async getFormularioServices(providerId :number, sessionId: number): Promise<any> {
+    try {
+      const response = await this.fetchWithBackoff(`${this.BASE_URL}/api/providers/${providerId}/sessions/${sessionId}/custom-fields`);
+     if(!response.ok){
+        throw new Error(`Erro HTTP: ${response.status}`)
+     }
+     return await response.json();
+      
+    }catch(e){
+        console.error("Erro ao buscar formulário de serviços:", e);
+        return [];
+       }
+  }
+
+  async getTicketStatus(accessKey: string): Promise<string> {
+    try {
+      const response = await this.fetchWithBackoff(`${this.BASE_URL}/v2/ticketing/public/ticket?key=${accessKey}`);
+
+      return await response.json();
+      
+    } catch(e){
+        console.error("Erro ao buscar status do ticket:", e);
+        return "";
+       }
+  }
+
+  
 }

@@ -5,6 +5,7 @@ import { FilazeroApiService } from "./infrastructure/services/FilazeroApiService
 import { CompanyService } from "./application/services/CompanyService.js";
 import { CompanyToolsController } from "./interface/controllers/CompanyToolsController.js";
 import { CategoriesResource } from "./interface/resources/CategoriesResource.js";
+import { TicketService } from "./application/services/TicketService.js";
 
 async function main() {
   const server = new McpServer({
@@ -14,9 +15,10 @@ async function main() {
 
   const apiService = new FilazeroApiService();
   const companyService = new CompanyService(apiService);
-
+  const ticketService = new TicketService(apiService);
+  
   // Registrar tools
-  new CompanyToolsController(server, companyService);
+  new CompanyToolsController(server, companyService, ticketService);
 
   // Registra resources
   new CategoriesResource(server);
