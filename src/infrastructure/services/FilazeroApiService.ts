@@ -6,6 +6,25 @@ import type {AvailableDate} from "../../domain/models/availableDate.js"
 export class FilazeroApiService {
   private BASE_URL = "https://api.staging.filazero.net";
 
+  private getHeaders() {
+  return {
+    Accept: "application/json, text/plain, */*",
+    Origin: "https://app.filazero.net",
+    Referer: "https://app.filazero.net/",
+    "User-Agent": "MCP-Server-FilaZero/1.0",
+    DNT: "1",
+  };
+  }
+
+  // Para requisições POST
+  private getWriteHeaders(token?: string) {
+  return {
+    ...this.getHeaders(),
+    "Content-Type": "application/json;charset=UTF-8",
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+  }
+
   // Em cenario de Conexão Recusada tenta 3 vezes com backoff exponencial
   private async fetchWithBackoff(url: string): Promise<Response> {
     let delay = 1000;
