@@ -12,8 +12,10 @@ export class CompanyToolsController {
 
   private registerTools(): void {
     this.registerListCompaniesToolHandler();
-    this.registerGetCompanyServicesToolHandler()
-    this.registerGetAvailableDatesToolHandler()
+    this.registerGetCompanyServicesToolHandler();
+    this.registerGetAvailableDatesToolHandler();
+    this.registerGetBusinessUnitsToolHandler();
+    this.registerGetAvailableSessionsToolHandler();
   }
 
   private registerGetCompanyServicesToolHandler(): void {
@@ -88,5 +90,57 @@ export class CompanyToolsController {
         }
       }
     )
+  }
+
+  private registerGetBusinessUnitsToolHandler(): void {
+  this.server.tool(
+    "get_business_units",
+    "List all available business units (locations) for a company",
+    {
+      slug: z.string().describe("Company slug"),
+    },
+    async ({ slug }) => {
+      const result = await this.companyService.getBusinessUnits(slug);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: result,
+          },
+        ],
+      };
+    }
+  );
+}
+
+  private registerGetAvailableSessionsToolHandler(): void {
+    this.server.tool(
+      "get_available_sessions",
+      "Get available sessions and professionals for a specific date, service and location",
+      {
+        slug: z.string().describe("Company slug"),
+        serviceId: z.number().describe("Service ID (use abstractServiceId when available)"),
+        locationId: z.number().describe("Business unit / location ID"),
+        date: z.string().describe("Selected date (ISO format or yyyy-mm-dd)")
+      },
+      async ({ slug, serviceId, locationId, date }) => {
+        const result = await this.companyService.getAvailableSessions(
+          slug,
+          serviceId,
+          locationId,
+          date
+        );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: result
+            }
+          ]
+        };
+      }
+    );
   }
 }
