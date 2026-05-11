@@ -10,6 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - CACHE_TTL_COMPANIES=300
+       - FILAZERO_API_URL=https://api.staging.filazero.net 
     stdin_open: true # para mcp STDIO
     tty: true #mantém o processo iterativo aberto
 
