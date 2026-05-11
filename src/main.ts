@@ -6,6 +6,8 @@ import { CompanyService } from "./application/services/CompanyService.js";
 import { CompanyToolsController } from "./interface/controllers/CompanyToolsController.js";
 import { CategoriesResource } from "./interface/resources/CategoriesResource.js";
 import { TicketService } from "./application/services/TicketService.js";
+import { SchedulingPrompt } from "./interface/prompts/SchedulingPrompt.js";
+import { ConsultAppointmentPrompt } from "./interface/prompts/ConsultAppointmentPrompt.js";
 
 async function main() {
   const server = new McpServer({
@@ -20,8 +22,12 @@ async function main() {
   // Registrar tools
   new CompanyToolsController(server, companyService, ticketService);
 
-  // Registra resources
+  // Registrar resources
   new CategoriesResource(server);
+
+  // Registrar prompts
+  new SchedulingPrompt(server);
+  new ConsultAppointmentPrompt(server);
 
 
   const transport = new StdioServerTransport();
