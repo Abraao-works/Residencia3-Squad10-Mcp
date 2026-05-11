@@ -4,6 +4,7 @@ services:
   mcp-server:
   # o build: . busca o dockerfile na raiz do projeto, onde está o código do mcp-server
     build: . 
+    image: residencia3-squad10-mcp
     container_name: filazero-mcp
     restart: unless-stopped
     environment:

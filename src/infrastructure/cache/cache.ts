@@ -9,6 +9,9 @@ class Cache {
   private readonly store = new Map<string, CacheEntry<unknown>>();
 
   set<T>(key: string, data: T, ttlSeconds: number): void {
+      process.stderr.write(
+    `[CACHE SET] ${key} TTL=${ttlSeconds}s\n`);
+
     this.store.set(key, {
       data,
       expiresAt: Date.now() + ttlSeconds * 1000,
@@ -17,12 +20,20 @@ class Cache {
 
   get<T>(key: string): T | null {
     const entry = this.store.get(key);
-    if (!entry) return null;
+    if (!entry){
+      process.stderr.write(`[CACHE MISS] ${key}\n`);
+      return null;
+    } 
     if (Date.now() > entry.expiresAt) {
+      process.stderr.write(`[CACHE EXPIRED] ${key}\n`);
+
       this.store.delete(key);
       return null;
     }
+    process.stderr.write(`[CACHE HIT] ${key}\n`);
+
     return entry.data as T;
+
   }
 
   invalidate(key: string): void {
