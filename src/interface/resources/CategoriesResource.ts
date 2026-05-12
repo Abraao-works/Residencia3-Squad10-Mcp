@@ -6,16 +6,20 @@ export class CategoriesResource {
     }
 
     private register() {
-        this.server.resource(
+        this.server.registerResource(
             "filazero-categories",
             "filazero://categories",
-            async () => {
-                return {
-                    contents: [
-                        {
-                            uri: "filazero://categories",
-                            mimeType: "text/plain",
-                            text: `
+            {
+                title: "Categorias de empresas do Filazero",
+                description: "Lista de categorias oficias que uma empresa pode ter no Filazero",
+                mimeType: "text/plain",
+            },
+            async () => ({
+                contents: [
+                    {
+                        uri: "filazero://categories",
+                        mimeType: "text/plain",
+                        text: `
 CATEGORIAS DISPONÍVEIS NO FILAZERO
 
 Este resource define oficialmente todas as categorias do sistema Filazero.
@@ -53,11 +57,10 @@ Lista de categorias:
 - OTHER: Outros (categorias não classificadas)
 
 Essas categorias são utilizadas para classificar empresas e podem ser usadas para filtrar, sugerir ou explicar serviços ao usuário.
-                            `.trim()
-                        }
-                    ]
-                }
-            }
+                        `.trim()
+                    }
+                ]
+            })
         )
     }
 }
