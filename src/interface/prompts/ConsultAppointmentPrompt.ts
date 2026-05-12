@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export class ConsultAppointmentPrompt {
     constructor(private server: McpServer) {
-
+        this.register();
     }
 
     private register() {
