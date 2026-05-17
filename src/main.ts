@@ -13,6 +13,7 @@ import { SchedulingPrompt } from "./interface/prompts/SchedulingPrompt.js";
 import { ConsultAppointmentPrompt } from "./interface/prompts/ConsultAppointmentPrompt.js";
 import { error } from 'node:console';
 import { FlowGuideResource } from "./interface/resources/FlowGuideResource.js";
+import { TicketLifecycleResource } from "./interface/resources/TicketLifeCycleResource.js";
 
 function createServer(): McpServer{
     const server = new McpServer({
@@ -30,6 +31,7 @@ function createServer(): McpServer{
   // Registrar resources
   new CategoriesResource(server);
   new FlowGuideResource(server);
+  new TicketLifecycleResource(server);
 
   // Registrar prompts
   new SchedulingPrompt(server);
