@@ -9,6 +9,7 @@ import { TicketService } from "./application/services/TicketService.js";
 import { SchedulingPrompt } from "./interface/prompts/SchedulingPrompt.js";
 import { ConsultAppointmentPrompt } from "./interface/prompts/ConsultAppointmentPrompt.js";
 import { FlowGuideResource } from "./interface/resources/FlowGuideResource.js";
+import { TicketLifecycleResource } from "./interface/resources/TicketLifeCycleResource.js";
 
 async function main() {
   const server = new McpServer({
@@ -26,6 +27,7 @@ async function main() {
   // Registrar resources
   new CategoriesResource(server);
   new FlowGuideResource(server);
+  new TicketLifecycleResource(server);
 
   // Registrar prompts
   new SchedulingPrompt(server);
