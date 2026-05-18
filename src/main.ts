@@ -38,8 +38,6 @@ function createServer(): McpServer{
 
   new ConsultAppointmentPrompt(server);
 
-  new CategoriesResource(server);
-
   return server;
 }
 async function startHttp(): Promise<void> {
