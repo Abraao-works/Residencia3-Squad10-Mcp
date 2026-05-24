@@ -33,18 +33,18 @@ export class CompanyToolsController {
         slug: z.string().describe("Company slug")
       },
       async ({slug}) => {
-        const responseServiceText = await this.companyService.getCompanyServices(slug)
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: responseServiceText
-            }
-          ]
+        try {
+          const services = await this.companyService.getCompanyServices(slug);
+          return {
+            content: [{ type: "text", text: JSON.stringify({ services }) }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
         }
       }
-    )
+    );
   }
 
   private registerListCompaniesToolHandler(): void {
@@ -56,22 +56,15 @@ export class CompanyToolsController {
 
       async () => {
         const companies = await this.companyService.listCompanies();
-
-        const text = companies
-          .map(
-            (c) =>
-              `🏢 ${c.name}\nslug: ${c.slug}\ncategoria: ${c.category}`
-          )
-          .join("\n\n");
-
-        return {
-          content: [
-            {
-              type: "text",
-              text,
-            },
-          ],
-        };
+        try {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ companies }) }],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
+        }
       }
     );
   }
@@ -85,19 +78,20 @@ export class CompanyToolsController {
         serviceId: z.number().describe("Service ID"),
       },
       async ({slug, serviceId}) => {
-        const result = await this.companyService.getAvailableDates(slug, serviceId)
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: result
-            }
-          ]
+        try {
+          const result = await this.companyService.getAvailableDates(slug, serviceId);
+          return {
+            content: [{ type: "text", text: JSON.stringify(result) }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
         }
       }
-    )
+    );
   }
+
   private registerGetFormularioToolHandler(): void {
   this.server.tool(
       "get_formulario_services",
@@ -107,19 +101,18 @@ export class CompanyToolsController {
         sessionId: z.number().describe("Session ID")
       },
       async ({providerId, sessionId}) => {
-        const result = await getFormularioService(providerId, sessionId)
-        const text = result.map((f: any) => `Id: ${f.id} \n Nome: ${f.name} \n Description: ${f.description}`).join("\n\n")
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: text 
-            }
-          ]
+       try {
+          const result = await getFormularioService(providerId, sessionId);
+          return {
+            content: [{ type: "text", text: JSON.stringify({ formulario: result }) }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
         }
       }
-    )
+    );
   }
 
     private registerGetTicketStatusToolHandler(): void {
@@ -130,19 +123,20 @@ export class CompanyToolsController {
         accessKey: z.string().describe("Ticket access key"),
       },
       async ({accessKey}) => {
-        const status = await this.ticketService.getTicketStatus(accessKey);
-      
-        return {
-          content: [
-            {
-              type: "text",
-              text: status
-            }
-          ]
+        try {
+          const status = await this.ticketService.getTicketStatus(accessKey);
+          return {
+            content: [{ type: "text", text: status }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
         }
       }
-    )
+    );
   }
+
   private registerGetBusinessUnitsToolHandler(): void {
     this.server.tool(
       "get_business_units",
@@ -151,19 +145,20 @@ export class CompanyToolsController {
         slug: z.string().describe("Company slug"),
       },
       async ({ slug }) => {
-        const result = await this.companyService.getBusinessUnits(slug);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: result,
-            },
-          ],
-        };
+        try {
+          const result = await this.companyService.getBusinessUnits(slug);
+          return {
+            content: [{ type: "text", text: JSON.stringify({ businessUnits: result})}],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
+        }
       }
     );
   }
+
   private registerGetAvailableSessionsToolHandler(): void {
     this.server.tool(
       "get_available_sessions",
@@ -175,21 +170,16 @@ export class CompanyToolsController {
         date: z.string().describe("Selected date (ISO format or yyyy-mm-dd)")
       },
       async ({ slug, serviceId, locationId, date }) => {
-        const result = await this.companyService.getAvailableSessions(
-          slug,
-          serviceId,
-          locationId,
-          date
-        );
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: result
-            }
-          ]
-        };
+        try {
+          const result = await this.companyService.getAvailableSessions(slug, serviceId, locationId, date);
+          return {
+            content: [{ type: "text", text: JSON.stringify(result) }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+          };
+        }
       }
     );
   }
@@ -248,67 +238,19 @@ export class CompanyToolsController {
       },
 
       async ({ document }) => {
-
         try {
-
-          const tickets =
-            await this.companyService.listMyTickets(document);
-
-          // sem tickets
-          if (!tickets.length) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: "Nenhum agendamento encontrado.",
-                },
-              ],
-            };
-          }
-
-          // formatação amigável
-          const text = tickets
-            .map((t: any) => {
-
-              const date = new Date(t.date)
-                .toLocaleString("pt-BR");
-
-              return (
-                `Protocolo: ${t.protocol}\n` +
-                `Serviço: ${t.service}\n` +
-                `Data: ${date}\n` +
-                `Profissional: ${t.professional || "Não informado"}\n` +
-                `Unidade: ${t.unit || "Não informada"}\n` +
-                `Status: ${t.status}`
-              );
-
-            })
-            .join("\n\n");
-
+          const tickets = await this.companyService.listMyTickets(document);
           return {
-            content: [
-              {
-                type: "text",
-                text,
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify({ tickets }) }],
           };
-
         } catch (error: any) {
-
           return {
-            content: [
-              {
-                type: "text",
-                text: `Erro ao buscar agendamentos: ${error.message}`,
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify({ error: `Erro ao buscar agendamentos: ${error.message}` }) }],
           };
-
         }
-
       }
     );
   }
+
 
 }
