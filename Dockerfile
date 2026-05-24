@@ -27,6 +27,9 @@ RUN npm install --omit=dev
 # copie apenas o resultado do build daquela etapa
 COPY --from=builder /app/dist ./dist 
 
+# rodar como usuário não privilegiado (root)
+USER node
+
 # Define o comando para iniciar a aplicação quando o container for executado
 CMD ["node", "dist/main.js"]
 
