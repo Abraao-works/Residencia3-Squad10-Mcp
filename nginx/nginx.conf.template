@@ -32,9 +32,8 @@ http {
     error_log  /var/log/nginx/error.log warn;
 
     # Rate limiting, limita o número de requisições/min por IP
-    #limit_req_zone $binary_remote_addr zone=api_limit:30m rate=30r/m;
+    limit_req_zone $binary_remote_addr zone=api_limit:30m rate=${RATE_LIMIT_RPM}r/m;
 
-    
 
     # Load balancer define o grupo de servidores backend para balanceamento de carga
 
@@ -60,7 +59,7 @@ http {
         add_header X-XSS-Protection "1; mode=block" always;
 
        # Rate limit, até 10 requisições extras sem fila
-       #limit_req zone=api_limit burst=10 nodelay;
+       limit_req zone=api_limit burst=10 nodelay;
 
         location /favicon.ico {
             access_log off; 
