@@ -11,11 +11,12 @@ import { CategoriesResource } from "./interface/resources/CategoriesResource.js"
 import { TicketService } from "./application/services/TicketService.js";
 import { SchedulingPrompt } from "./interface/prompts/SchedulingPrompt.js";
 import { ConsultAppointmentPrompt } from "./interface/prompts/ConsultAppointmentPrompt.js";
-import { error } from 'node:console';
 import { FlowGuideResource } from "./interface/resources/FlowGuideResource.js";
 import { TicketLifecycleResource } from "./interface/resources/TicketLifeCycleResource.js";
+import { httpLogger } from './infrastructure/logging/httplogger.js';
+import { logger } from './infrastructure/logging/logger.js';
 
-function createServer(): McpServer{
+export function createServer(): McpServer{
     const server = new McpServer({
     name: "filazero-mcp",
     version: "1.0.0"
@@ -45,6 +46,8 @@ async function startHttp(): Promise<void> {
   const port = Number(process.env['MCP_SERVER_PORT'] ?? 3000);
   const app = express();
 
+  app.use(httpLogger); 
+
   app.set('trust proxy', true); 
   app.use(express.json({limit: '10mb'})); 
 
@@ -59,11 +62,14 @@ async function startHttp(): Promise<void> {
         sessionIdGenerator: () => randomUUID(), 
       });
 
-      const mcpServer = createServer();
+      const mcpServer = createServer(); 
       await mcpServer.connect(transport);
 
-      transport.onclose = () => {
-        if (transport.sessionId) transports.delete(transport.sessionId);
+      transport.onclose = () => { 
+        if (transport.sessionId) transports.delete(transport.sessionId); 
+        logger.info({
+          sessionId: transport.sessionId,
+        }, 'Session closed and removed from active transports');
       };
 
       await transport.handleRequest(req, res, req.body);
@@ -87,11 +93,14 @@ async function startHttp(): Promise<void> {
     res.status(400).json({ error: 'Missing mcp-session-id header' });
   });
 
-  app.get('/health', (_req, res) => { // monitoramento de saúde da aplicação
+  app.get('/mcp/health', (_req, res) => { // monitoramento de saúde da aplicação
+    logger.info({
+      route: '/mcp/health',
+    }, 'Health check endpoint called');
     res.json({ status: 'ok', server: 'filazero-mcp' });
   });
 
-  app.get('/', (_req, res) => {
+  app.get('/mcp', (_req, res) => {
     res.json({
       server: 'filazero-mcp',
       status: 'running',
@@ -101,15 +110,23 @@ async function startHttp(): Promise<void> {
 
   const httpServer = http.createServer(app);
   httpServer.listen(port,'0.0.0.0' ,() => {
-    console.error(`MCP Server HTTP rodando na porta ${port}`);
+
+  logger.info({
+  port,
+  transport: 'http',
+  pid: process.pid,
+}, 'MCP Server started');
+
   });
 }
 
 async function startStdio(): Promise<void> {
   const transport = new StdioServerTransport();
   await createServer().connect(transport);
-  console.error('MCP Server rodando em modo stdio');
-}
+  logger.info({
+  port: 'stdio',
+  transport: 'stdio',
+}, 'MCP Stdio Server started');}
 
 async function main(): Promise<void> {
   const mode = process.env['MCP_TRANSPORT'] ?? 'stdio';
@@ -121,6 +138,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error("Erro:", error);
+  logger.error({
+  err:error,
+}, 'Fatal error starting MCP Server');
   process.exit(1);
 });
