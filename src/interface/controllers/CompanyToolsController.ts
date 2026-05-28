@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CompanyService } from "../../application/services/CompanyService.js"
 import {getFormularioService} from "../../application/services/formularioService.js";
 import { TicketService } from "../../application/services/TicketService.js";
+import { executeTool } from "../../infrastructure/logging/toollogger.js";
 
 export class CompanyToolsController {
   constructor(
@@ -34,7 +35,9 @@ export class CompanyToolsController {
       },
       async ({slug}) => {
         try {
-          const services = await this.companyService.getCompanyServices(slug);
+          const services = await executeTool("get_company_services", { slug }, async () => {
+            return await this.companyService.getCompanyServices(slug);
+          });
           return {
             content: [{ type: "text", text: JSON.stringify({ services }) }]
           };
@@ -55,16 +58,24 @@ export class CompanyToolsController {
       {},
 
       async () => {
-        const companies = await this.companyService.listCompanies();
-        try {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ companies }) }],
-          };
-        } catch (error: any) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
-          };
-        }
+
+      try{
+
+        const companies = await executeTool("list_companies",{},
+           async () => {
+
+          return await this.companyService.listCompanies();
+        });
+
+        return {
+          content: [{ type: "text", text: JSON.stringify({ companies }) }],
+        };
+
+      }catch(error: any){
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: error.message }) }]
+        };
+      }
       }
     );
   }
@@ -78,8 +89,14 @@ export class CompanyToolsController {
         serviceId: z.number().describe("Service ID"),
       },
       async ({slug, serviceId}) => {
+
         try {
-          const result = await this.companyService.getAvailableDates(slug, serviceId);
+
+          const result = await executeTool("get_available_dates", { slug, serviceId }, async () => {
+
+            return await this.companyService.getAvailableDates(slug, serviceId);
+          });
+
           return {
             content: [{ type: "text", text: JSON.stringify(result) }]
           };
@@ -102,7 +119,9 @@ export class CompanyToolsController {
       },
       async ({providerId, sessionId}) => {
        try {
-          const result = await getFormularioService(providerId, sessionId);
+       const result = await executeTool("get_formulario_services", { providerId, sessionId }, async () => {
+             return await getFormularioService(providerId, sessionId);
+          });
           return {
             content: [{ type: "text", text: JSON.stringify({ formulario: result }) }]
           };
@@ -124,7 +143,9 @@ export class CompanyToolsController {
       },
       async ({accessKey}) => {
         try {
-          const status = await this.ticketService.getTicketStatus(accessKey);
+          const status = await executeTool("get_ticket_status", { accessKey }, async () => {
+            return await this.ticketService.getTicketStatus(accessKey);
+          });
           return {
             content: [{ type: "text", text: status }]
           };
@@ -146,7 +167,9 @@ export class CompanyToolsController {
       },
       async ({ slug }) => {
         try {
-          const result = await this.companyService.getBusinessUnits(slug);
+          const result = await executeTool("get_business_units", { slug }, async () => {
+            return await this.companyService.getBusinessUnits(slug);
+          });
           return {
             content: [{ type: "text", text: JSON.stringify({ businessUnits: result})}],
           };
@@ -171,7 +194,9 @@ export class CompanyToolsController {
       },
       async ({ slug, serviceId, locationId, date }) => {
         try {
-          const result = await this.companyService.getAvailableSessions(slug, serviceId, locationId, date);
+          const result = await executeTool("get_available_sessions", { slug, serviceId, locationId, date }, async () => {
+            return await this.companyService.getAvailableSessions(slug, serviceId, locationId, date);
+          });
           return {
             content: [{ type: "text", text: JSON.stringify(result) }]
           };
@@ -203,11 +228,9 @@ export class CompanyToolsController {
       },
       async ({ body, token }) => {
         try {
-          const result = await this.companyService.scheduleAppointment(
-            body,
-            token
-          );
-
+          const result = await executeTool("schedule_appointment", { body, token }, async () => {
+            return await this.companyService.scheduleAppointment(body, token);
+          });
           // retorno simplificado
           return {
             content: [
@@ -239,7 +262,9 @@ export class CompanyToolsController {
 
       async ({ document }) => {
         try {
-          const tickets = await this.companyService.listMyTickets(document);
+          const tickets = await executeTool("list_my_tickets", { document }, async () => {
+            return await this.companyService.listMyTickets(document);
+          });
           return {
             content: [{ type: "text", text: JSON.stringify({ tickets }) }],
           };
