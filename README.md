@@ -173,6 +173,12 @@ Verifique:
 
 ---
 
+### Reiniciar o Claude Desktop
+
+Para reiniciar o Claude Desktop não basta só fechar e abrir novamente a aplicação, é preciso finalizar a tarefa da aplicação pelo gerenciador de tarefas, só assim ele reconhecerá alguma alteração que tenha sido feita no código ou na configuração
+
+---
+
 ### Erro ao executar Docker Compose
 
 Tente reconstruir os containers:
@@ -186,11 +192,29 @@ docker compose up --build
 ## Arquitetura
 
 ```text
-Claude Desktop
-        ↓
-MCP Remote
-        ↓
-Servidor MCP
-        ↓
-API Filazero
+┌─────────────────┐
+│ Claude Desktop  │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│   MCP Remote    │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│      Nginx      │
+│ Reverse Proxy   │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Docker Container│
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Filazero MCP    │
+│    Server       │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│  API Filazero   │
+└─────────────────┘
 ```
