@@ -2,6 +2,8 @@ import axios from "axios"
 import type {Company } from "../../domain/models/empresa.js"
 import type {Service } from "../../domain/models/service.js"
 import type {AvailableDate} from "../../domain/models/availableDate.js"
+import { handleCustomErrors } from "../exceptions/errorHandler.js";
+import { logger } from "../logging/logger.js";
 
 export class FilazeroApiService {
 private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero.net";
@@ -83,8 +85,12 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
 
       return data
     } catch (error) {
-        console.error(`Erro HTTP ao buscar empresas: `, error);
-        return []
+      logger.error({
+        err: error,
+        url: `${this.BASE_URL}/api/companies`
+      }, "Erro HTTP ao buscar empresas");
+  
+        throw error;
     }
   }
 
@@ -130,17 +136,17 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
        }
   }
 
-  async getTicketStatus(accessKey: string): Promise<string> {
+  async getTicketStatus(accessKey: string): Promise<{status: number, data: string} | {status: number, body: {error: string}}> {
     try {
       const response = await this.fetchWithBackoff(`${this.BASE_URL}/v2/ticketing/public/ticket?key=${accessKey}`);
 
       const data = await response.json();
       this.checkApiErrors(data);
-      return data;
+      return { status: 200, data: data };
       
     } catch(e){
         console.error("Erro ao buscar status do ticket:", e);
-        return "";
+        return handleCustomErrors(e);
        }
   }
   async getBusinessUnits(slug: string): Promise<any[]> {
@@ -193,6 +199,7 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
     }
   }
    async scheduleAppointment(body: any, token: string) {
+    try{
     return fetch(
       `${this.BASE_URL}/v2/ticketing/tickets`,
       {
@@ -212,10 +219,14 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
         body: JSON.stringify(body)
       }
     );
+  }catch(e){
+    return handleCustomErrors(e)
   }
+}
 
   // Lista tickets do usuário 
   async listMyTickets(document: string) {
+    try {
     const response = await fetch(
       `${this.BASE_URL}/api/tickets?document=${document}`,
       {
@@ -232,6 +243,9 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
 
     const data = await response.json();
     this.checkApiErrors(data);
-    return data;
+    return { status: 200, body: data };
+  }catch(e){
+     return handleCustomErrors(e);
   }
+}
 }
