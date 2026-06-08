@@ -1,18 +1,88 @@
-version: "3.9"
 services:
 
   mcp-server:
   # o build: . busca o dockerfile na raiz do projeto, onde está o código do mcp-server
     build: . 
-    image: residencia3-squad10-mcp
+    expose:
+      - "3000"
+
     container_name: filazero-mcp
-    restart: unless-stopped
+
     environment:
-      - NODE_ENV=production
+      - MCP_TRANSPORT=http
+      - MCP_SERVER_PORT=3000
       - CACHE_TTL_COMPANIES=300
-       - FILAZERO_API_URL=https://api.staging.filazero.net 
-    stdin_open: true # para mcp STDIO
-    tty: true #mantém o processo iterativo aberto
+      - FILAZERO_API_URL=https://api.staging.filazero.net
+      - FILAZERO_APP_ORIGIN=https://app.filazero.net
+      - LOG_LEVEL=info
+      - TZ=America/Sao_Paulo
+    
+    # limitação de recursos
+    mem_limit: 512m
+    cpus: 1.0
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/mcp/health"] 
+      interval: 3s
+      timeout: 1s
+      retries: 3
+
+    
+  
+    #stdin_open: true # para mcp STDIO
+    #tty: true #mantém o processo iterativo aberto
+    networks:
+      - backend
+
+    logging:
+      driver: "json-file"
+      options:
+          max-size: "10m"
+          max-file: "5"
+
+  nginx:
+      image: nginx:stable-alpine # imagem leve do nginx
+      container_name: filazero-nginx
+
+      ports:
+        - "80:80"
+        - "443:443"
+
+      volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./nginx/logs/nginx:/var/log/nginx
+
+      depends_on:
+        - mcp-server
+      
+      environment:
+        - TZ=America/Sao_Paulo
+        - RATE_LIMIT_RPM=30
+      
+      #limitação de recursos
+      mem_limit: 128m
+      cpus: 0.5
+
+      restart: unless-stopped
+
+      networks:
+        - backend
+      
+      logging:
+        driver: "json-file"
+        options:
+          max-size: "10m"
+          max-file: "5"
+
+      command:
+      - /bin/sh
+      - -c
+      - envsubst '$$RATE_LIMIT_RPM' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'
+networks:
+      backend:
+        driver: bridge
 
 
 

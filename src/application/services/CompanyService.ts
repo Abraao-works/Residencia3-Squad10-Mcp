@@ -1,6 +1,8 @@
 import { FilazeroApiService } from "../../infrastructure/services/FilazeroApiService.js";
 import type { Company } from "../../domain/models/empresa.js";
+import type { Service } from "../../domain/models/service.js";
 import { cache, TTL } from "../../infrastructure/cache/cache.js";
+import type { BusinessUnit } from "../../domain/models/businessUnit.js";
 
 export class CompanyService {
   constructor(private apiService: FilazeroApiService) {}
@@ -27,10 +29,10 @@ export class CompanyService {
     }
   }
 
-  async getCompanyServices(slug: string): Promise<string> {
+  async getCompanyServices(slug: string): Promise<Service[]> {
     const cacheKey = `services: ${slug}`;
 
-    const cached = cache.get<string>(cacheKey);
+    const cached = cache.get<Service[]>(cacheKey);
     if(cached) {return cached;}
 
     try {
@@ -40,40 +42,38 @@ export class CompanyService {
         throw new Error(`Nenhum serviço encontrado para a empresa ${slug}`)
       }
 
-      const result = services.map((s) => `- ${s.name} (id: ${s.id}) \n Descrição: ${s.description}`).join("\n");
-      cache.set(cacheKey, result, TTL.services);
-      return result;
-
-
+      cache.set(cacheKey, services, TTL.services);
+      return services;
+    
     } catch (error) {
       console.error(`Erro ao buscar serviços da empresa ${slug}`)
-      return `Erro ao buscar serviços da empresa ${slug}`
+      throw error;
     }
   }
 
-  async getAvailableDates(slug: string, serviceId: number): Promise<string> {
+  async getAvailableDates(slug: string, serviceId: number): Promise<{ horariosDisponiveis: Record<string, string[]> }> {
 
     const cacheKey = `availableDates: ${slug}:${serviceId}`;
-    const cached = cache.get<string>(cacheKey);
+    const cached = cache.get<{ horariosDisponiveis: Record<string, string[]> }>(cacheKey);
 
     if(cached) {return cached;}
 
     const dates = await this.apiService.getAvailableDates(slug, serviceId);
 
     if (!dates.length) {
-      return "Nenhuma data disponível"
+      throw new Error("Nenhuma data disponível");
     }
 
-    const avaiable = dates.filter((d) => d.hasSlotLeft)
+    const available = dates.filter((d) => d.hasSlotLeft)
 
-    if (!avaiable.length) {
-      return "Não há datas com vagas disponíveis.";
+    if (!available.length) {
+      throw new Error("Não há datas com vagas disponíveis.");
     }
 
     // Agrupando por dia
-    const grouped: Record<string, string[]> = {}
+    const grouped: Record<string, string[]> = {};
 
-    avaiable.forEach((d) => {
+    available.forEach((d) => {
       const dateObj = new Date(d.date);
 
       const day = dateObj.toLocaleDateString("pt-BR");
@@ -89,47 +89,31 @@ export class CompanyService {
       grouped[day].push(time)
     })
 
-    // Montar resposta
-    let response = "Horários disponíveis:\n\n"
-
-    for (const day in grouped) {
-      response += `${day}: \n`
-      grouped[day]?.forEach((time) => {
-        response += `- ${time}\n`
-      })
-      response += "\n"
-    }
+    const response = {
+      horariosDisponiveis: grouped
+    };
+    
     cache.set(cacheKey, response, TTL.availableDates);
-    return response
+    return response;
   }
   
-//tool para o locationID
-  async getBusinessUnits(slug: string): Promise<string> {
+  // tool para o locationID
+  async getBusinessUnits(slug: string): Promise<BusinessUnit[]> {
     try {
       const units = await this.apiService.getBusinessUnits(slug);
 
       if (!units || !units.length) {
-        return "Nenhuma unidade de atendimento encontrada para essa empresa.";
+        throw new Error("Nenhuma unidade de atendimento encontrada para essa empresa.");
       }
 
-      let response = "Unidades disponíveis:\n\n";
-
-      units.forEach((u) => {
-        response += `- ${u.name} (id: ${u.id}) - ${u.city}\n`;
-      });
-
-      return response;
+      return units;
     } catch (error) {
       console.error("Erro ao buscar unidades:", error);
-      return "Erro ao buscar unidades de atendimento.";
+      throw new Error("Erro ao buscar unidades de atendimento.");
     }
   }
-  async getAvailableSessions(
-  slug: string,
-  serviceId: number,
-  locationId: number,
-  date: string
-): Promise<any> {
+
+  async getAvailableSessions(slug: string, serviceId: number, locationId: number, date: string): Promise<any> {
 
   // busca dados na API
   const data = await this.apiService.getAvailableSessions(
@@ -212,5 +196,5 @@ export class CompanyService {
       professional: ticket.resourceName,
       unit: ticket.locationName,
     }));
-}
+  }
 }

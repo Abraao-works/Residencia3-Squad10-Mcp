@@ -6,6 +6,14 @@ import type {AvailableDate} from "../../domain/models/availableDate.js"
 export class FilazeroApiService {
 private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero.net";
 
+  // Verificar erros de negócio na resposta
+  checkApiErrors(response: { messages?: { type: string; description: string }[] }): void {
+    const error = response.messages?.find(m => m.type === 'ERROR');
+    if (error) {
+      throw new Error(error.description);
+    }
+}
+
   private getHeaders() {
   return {
     Accept: "application/json, text/plain, */*",
@@ -71,6 +79,7 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
       const response = await this.fetchWithBackoff(`${this.BASE_URL}/api/companies`);
 
       const data = await response.json();
+      this.checkApiErrors(data);
 
       return data
     } catch (error) {
@@ -84,6 +93,7 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
         const response = await this.fetchWithBackoff(`${this.BASE_URL}/api/companies/${slug}/services`)
 
         const data = await response.json();
+        this.checkApiErrors(data);
 
         return data.services
     } catch (error) {
@@ -95,8 +105,9 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
   async getAvailableDates(slug: string, serviceId: number): Promise<AvailableDate[]> {
     try {
       const response = await this.fetchWithBackoff(`${this.BASE_URL}/v2/scheduling/self-service/providers/${slug}/services/${serviceId}/available-session-days`);
-
-      return await response.json();
+      const data = await response.json();
+      this.checkApiErrors(data);
+      return data;
     } catch (error) {
       console.error("Erro ao buscar datas disponíveis:", error);
       return [];
@@ -109,7 +120,9 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
      if(!response.ok){
         throw new Error(`Erro HTTP: ${response.status}`)
      }
-     return await response.json();
+     const data = await response.json();
+     this.checkApiErrors(data);
+     return data;
       
     }catch(e){
         console.error("Erro ao buscar formulário de serviços:", e);
@@ -121,7 +134,9 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
     try {
       const response = await this.fetchWithBackoff(`${this.BASE_URL}/v2/ticketing/public/ticket?key=${accessKey}`);
 
-      return await response.json();
+      const data = await response.json();
+      this.checkApiErrors(data);
+      return data;
       
     } catch(e){
         console.error("Erro ao buscar status do ticket:", e);
@@ -142,6 +157,7 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
       }
 
       const data = await response.json();
+      this.checkApiErrors(data);
 
       return data;
     } catch (error) {
@@ -168,6 +184,7 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
       }
 
       const data = await response.json();
+      this.checkApiErrors(data);
 
       return data;
     } catch (error) {
@@ -213,6 +230,8 @@ private BASE_URL = process.env.FILAZERO_API_URL || "https://api.staging.filazero
       throw new Error(`Erro HTTP: ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    this.checkApiErrors(data);
+    return data;
   }
 }
