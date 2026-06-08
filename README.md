@@ -37,6 +37,12 @@ Adicione essa configuração no arquivo do claude (claude_desktop_config)
 Para acessar o arquivo `claude_desktop_config` no Claude Desktop clique no nome do seu perfil na parte de baixo e depois vá para configurações, então vá para desenvolvedor e escolha a opção "Editar Config", assim será aberto o arquivo de configuração. 
 
 ## Comandos iniciais
+Clone o repositório
+
+```
+git clone https://github.com/Abraao-works/Residencia3-Squad10-Mcp.git
+```
+
 Após clonar o repositório, abra o projeto no terminal e digite os seguintes comandos:
 
 ```
