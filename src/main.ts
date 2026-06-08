@@ -11,11 +11,14 @@ import { CategoriesResource } from "./interface/resources/CategoriesResource.js"
 import { TicketService } from "./application/services/TicketService.js";
 import { SchedulingPrompt } from "./interface/prompts/SchedulingPrompt.js";
 import { ConsultAppointmentPrompt } from "./interface/prompts/ConsultAppointmentPrompt.js";
-import { error } from 'node:console';
 import { FlowGuideResource } from "./interface/resources/FlowGuideResource.js";
 import { TicketLifecycleResource } from "./interface/resources/TicketLifeCycleResource.js";
+import { httpLogger } from './infrastructure/logging/httplogger.js';
+import { logger } from './infrastructure/logging/logger.js';
+import type { SessionContext } from './infrastructure/http/SessionContext.js';
 
-function createServer(): McpServer{
+
+export function createServer(): McpServer{
     const server = new McpServer({
     name: "filazero-mcp",
     version: "1.0.0"
@@ -40,17 +43,53 @@ function createServer(): McpServer{
 
   return server;
 }
+
 async function startHttp(): Promise<void> {
 
   const port = Number(process.env['MCP_SERVER_PORT'] ?? 3000);
   const app = express();
 
+  app.use(httpLogger); 
+
   app.set('trust proxy', true); 
   app.use(express.json({limit: '10mb'})); 
+  // Midleware que atribui Id por requisição
+  app.use((req, _res, next) => {
 
-  const transports = new Map<string, StreamableHTTPServerTransport>(); // armazena sessões ativas apenas na memória do container
+    req.id =   req.headers['x-request-id']?.toString() ?? randomUUID(); 
+    next(); // continuar processado a request
+  })
+
+  //const transports = new Map<string, StreamableHTTPServerTransport>(); // armazena sessões ativas apenas na memória do container
+  const sessions = new Map<string, SessionContext>(); 
+  const SESSION_TTL_MS = 100 * 60 * 30 // 30 minutos
+
+  const cleanupTimer = setInterval( () => {
+    const now = Date.now();
+
+    for (const [sessionId, session] of sessions.entries()) {
+      
+      const inactiveMS = now -session.lastAccessAt;
+      
+      if (inactiveMS > SESSION_TTL_MS) { //
+        
+        session.status = 'expired';
+        session.transport.close(); 
+
+        logger.warn({
+          sessionId,
+          inactiveMinutes: Math.round(inactiveMS / 60000),
+          requestCount: session.requestCount,
+          userAgent: session.userAgent,
+        }, 'Mcp session expired due to inactivity');
+      }
+    }
+  }, 60 * 1000); // roda a cada minuto para limpar sessões inativas
+
+  cleanupTimer.unref(); // permite que o processo seja encerrado mesmo com o timer ativo
 
   app.all('/mcp', async (req, res) => { // endpoint mcp 
+    try {
     const sessionId = req.headers['mcp-session-id'] as string | undefined; 
 
     if (req.method === 'POST' && !sessionId) {
@@ -59,39 +98,99 @@ async function startHttp(): Promise<void> {
         sessionIdGenerator: () => randomUUID(), 
       });
 
-      const mcpServer = createServer();
+      const mcpServer = createServer(); 
       await mcpServer.connect(transport);
 
-      transport.onclose = () => {
-        if (transport.sessionId) transports.delete(transport.sessionId);
+      transport.onclose = () => { 
+
+        if(!transport.sessionId) return;
+
+        const session = sessions.get(transport.sessionId);
+
+        if(session) {
+
+          session.status = 'closed';
+
+          logger.info({
+            sessionId: session.sessionId,
+            requestCount: session.requestCount, 
+            durationMs: Date.now() - session.createdAt,
+            activeSessions: sessions.size - 1,
+          }, 'Mcp session closed');
+
+        
+          sessions.delete(transport.sessionId); // remove sessão do map
+        }
       };
 
-      await transport.handleRequest(req, res, req.body);
+       await transport.handleRequest(req, res, req.body);
 
       if (transport.sessionId) {
-        transports.set(transport.sessionId, transport); // armazena nova sessão
+        //transports.set(transport.sessionId, transport); // armazena nova sessão
+        const session : SessionContext  = {
+          sessionId: transport.sessionId,
+          transport,
+          createdAt: Date.now(),
+          lastAccessAt: Date.now(),
+          requestCount: 1,
+          clientIp: req.ip,
+          userAgent: req.headers['user-agent'] ?? 'unknown',
+          status: 'active',
+        }
+
+        sessions.set(transport.sessionId, session); // armazena nova sessão
+
+        logger.info({
+          sessionId: transport.sessionId,
+          requestId: req.id,
+          clientIp: session.clientIp,
+          userAgent: session.userAgent,
+          activeSessions: sessions.size,
+        }, 'Mcp session created');
       }
       return;
     }
 
     if (sessionId) {
-      const transport = transports.get(sessionId);
-      if (!transport) {
+      //const transport = transports.get(sessionId);
+      const session = sessions.get(sessionId);
+      if (!session) {
+        
+        logger.warn({
+          sessionId,
+          requestId: req.id,
+        }, 'Session ID not found');
+
         res.status(404).json({ error: 'Session not found' });
         return;
       }
-      await transport.handleRequest(req, res, req.body); //processando requisição 
+      session.lastAccessAt = Date.now();  
+      session.requestCount += 1;
+
+      // await transport.handleRequest(req, res, req.body); //processando requisição 
+      await session.transport.handleRequest(req, res, req.body); //processando requisição
+
       return;
     }
 
     res.status(400).json({ error: 'Missing mcp-session-id header' });
+  } catch (error) {
+    logger.error({
+      err: error,
+      requestId: req.id,
+    }, 'Error handling MCP request');
+    res.status(500).json({ error: 'Internal server error' });
+}});
+
+  app.get('/mcp/health', (_req, res) => { // monitoramento de saúde da aplicação
+    logger.info({
+      route: '/mcp/health',
+      requestId: _req.id,
+    }, 'Health check endpoint called');
+    res.json({ status: 'ok', server: 'filazero-mcp', activeSessions: sessions.size});
   });
 
-  app.get('/health', (_req, res) => { // monitoramento de saúde da aplicação
-    res.json({ status: 'ok', server: 'filazero-mcp' });
-  });
-
-  app.get('/', (_req, res) => {
+  app.get('/mcp', (_req, res) => {
     res.json({
       server: 'filazero-mcp',
       status: 'running',
@@ -101,15 +200,23 @@ async function startHttp(): Promise<void> {
 
   const httpServer = http.createServer(app);
   httpServer.listen(port,'0.0.0.0' ,() => {
-    console.error(`MCP Server HTTP rodando na porta ${port}`);
+
+  logger.info({
+  port,
+  transport: 'http',
+  pid: process.pid, // instância do container
+}, 'MCP Server started');
+
   });
 }
 
 async function startStdio(): Promise<void> {
   const transport = new StdioServerTransport();
   await createServer().connect(transport);
-  console.error('MCP Server rodando em modo stdio');
-}
+  logger.info({
+  port: 'stdio',
+  transport: 'stdio',
+}, 'MCP Stdio Server started');}
 
 async function main(): Promise<void> {
   const mode = process.env['MCP_TRANSPORT'] ?? 'stdio';
@@ -121,6 +228,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error("Erro:", error);
+  logger.error({
+  err:error,
+}, 'Fatal error starting MCP Server');
   process.exit(1);
 });

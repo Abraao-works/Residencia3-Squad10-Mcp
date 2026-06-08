@@ -1,5 +1,4 @@
-// src/cache/index.ts
-
+import {logger} from '../logging/logger.js';
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -9,8 +8,11 @@ class Cache {
   private readonly store = new Map<string, CacheEntry<unknown>>();
 
   set<T>(key: string, data: T, ttlSeconds: number): void {
-      process.stderr.write(
-    `[CACHE SET] ${key} TTL=${ttlSeconds}s\n`);
+    logger.info(
+      {
+      cachekey: key,
+      ttl: ttlSeconds,
+  }, 'Cache entry set');
 
     this.store.set(key, {
       data,
@@ -21,16 +23,29 @@ class Cache {
   get<T>(key: string): T | null {
     const entry = this.store.get(key);
     if (!entry){
-      process.stderr.write(`[CACHE MISS] ${key}\n`);
+      logger.info(
+        {
+        cachekey: key,
+        },
+        'Cache miss');
       return null;
     } 
     if (Date.now() > entry.expiresAt) {
-      process.stderr.write(`[CACHE EXPIRED] ${key}\n`);
+      logger.info(
+        {
+        cachekey: key,
+        },
+        'Cache expired');
 
       this.store.delete(key);
       return null;
     }
-    process.stderr.write(`[CACHE HIT] ${key}\n`);
+
+    logger.info(
+      {
+      cachekey: key,
+      },
+       'Cache hit');
 
     return entry.data as T;
 
@@ -38,12 +53,30 @@ class Cache {
 
   invalidate(key: string): void {
     this.store.delete(key);
+
+    logger.info(
+      {
+      cachekey: key,
+      },
+      'Cache entry invalidated');
   }
+  
 
   purgeExpired(): void {
     const now = Date.now();
+    let removed = 0;
     for (const [key, entry] of this.store.entries()) {
-      if (now > entry.expiresAt) this.store.delete(key);
+      if (now > entry.expiresAt){ 
+        this.store.delete(key);
+        removed++;
+      }
+    }
+    if (removed > 0) {
+    logger.info(
+      {
+      removed,
+      },
+      'Expired cache entries purged');
     }
   }
 }
