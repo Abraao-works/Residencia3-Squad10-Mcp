@@ -1,5 +1,5 @@
 import axios from "axios";
-import { handleCustomErrors } from "../middlewares/errorHandler.js";
+import { handleCustomErrors } from "./infrastructure/exceptions/errorHandler.js";
 
 const api = axios.create({
   baseURL: "https://api.filazero.net/v2/ticketing",
@@ -10,7 +10,7 @@ const api = axios.create({
 export async function scheduleAppointment(token: string, payload: any) {
   try {
     const response = await api.post("/tickets", payload, {
-      headers: { Authorization: Bearer ${token} }
+      headers: { Authorization: `Bearer ${token}` }
     });
     return { status: 200, body: response.data };
   } catch (error: any) {
@@ -20,7 +20,7 @@ export async function scheduleAppointment(token: string, payload: any) {
 
 export async function checkTicketStatus(accessKey: string) {
   try {
-    const response = await api.get(/tickets/${accessKey});
+    const response = await api.get(`/tickets/${accessKey}`);
     return { status: 200, body: response.data };
   } catch (error: any) {
     return handleCustomErrors(error);
@@ -30,7 +30,7 @@ export async function checkTicketStatus(accessKey: string) {
 export async function listMyTickets(token: string) {
   try {
     const response = await api.get("/tickets", {
-      headers: { Authorization: Bearer ${token} }
+      headers: { Authorization: `Bearer ${token}` }
     });
     return { status: 200, body: response.data };
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { handleCustomErrors } from "../middlewares/errorHandler.js";
+import { handleCustomErrors } from "./infrastructure/exceptions/errorHandler.js";
 
 const api = axios.create({
   baseURL: "https://api.filazero.net",
@@ -17,8 +17,8 @@ export async function listCompanies() {
 }
 
 export async function getCompanyServices(companySlug: string) {
-  try {
-    const response = await api.get(/companies/${companySlug}/services);
+  try {1
+    const response = await api.get(`/companies/${companySlug}/services`);
     return { status: 200, body: response.data };
   } catch (error: any) {
     return handleCustomErrors(error);
