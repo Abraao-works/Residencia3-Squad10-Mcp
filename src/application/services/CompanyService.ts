@@ -3,6 +3,7 @@ import type { Company } from "../../domain/models/empresa.js";
 import type { Service } from "../../domain/models/service.js";
 import { cache, TTL } from "../../infrastructure/cache/cache.js";
 import type { BusinessUnit } from "../../domain/models/businessUnit.js";
+import { handleCustomErrors } from "../../infrastructure/exceptions/errorHandler.js";
 
 export class CompanyService {
   constructor(private apiService: FilazeroApiService) {}
@@ -166,7 +167,11 @@ export class CompanyService {
 
 // Realiza o agendamento criando um ticket
   async scheduleAppointment(body: any, token: string) {
+
     const response = await this.apiService.scheduleAppointment(body, token);
+    if(!(response instanceof Response)){
+      throw new Error(response.body.error || "Erro desconhecido ao agendar.");
+    }
     const data = await response.json();
 
     // tratamento de erro da API

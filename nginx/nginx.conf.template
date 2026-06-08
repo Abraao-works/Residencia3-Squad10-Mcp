@@ -40,7 +40,8 @@ http {
             '"upstream_response_time":"$upstream_response_time",'
             '"upstream_addr":"$upstream_addr",'
             '"http_referrer":"$http_referer",'
-            '"http_user_agent":"$http_user_agent"'
+            '"http_user_agent":"$http_user_agent",'
+            '"mcp_session_id":"$http_mcp_session_id",'
         '}';
 
     access_log /var/log/nginx/access.log json_combined;
@@ -52,7 +53,9 @@ http {
     # Load balancer define o grupo de servidores backend para balanceamento de carga
 
     upstream node_backend { 
-        least_conn; # envia para servidor com menos conexões ativas
+        # least_conn envia para servidor com menos conexões ativas
+        ip_hash; 
+
         server mcp-server:3000 max_fails=3 fail_timeout=30s;  
 
         # Instâncias para possível escalabilidade futura
@@ -81,8 +84,8 @@ http {
         # Onde as requisições estão sendo direcionadas, como por exemplo /api
         location /mcp {
             
-            # Rate limit, até 10 requisições extras sem fila
-            limit_req zone=api_limit burst=10 nodelay;
+            # Rate limit, até 100 requisições extras sem fila
+            limit_req zone=api_limit burst=100;
 
             proxy_pass http://node_backend/mcp;
 
@@ -102,6 +105,7 @@ http {
             proxy_set_header X-Real-IP $remote_addr; 
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; 
             proxy_set_header X-Forwarded-Proto $scheme; # histórico de proxys
+            proxy_set_header x-Request-Id $request_id;
 
             proxy_connect_timeout 5s;
             proxy_send_timeout 3600s;# tempo para o backend processar a requisição, importante para operações longas
