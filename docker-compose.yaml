@@ -31,7 +31,7 @@ services:
       timeout: 5s
       retries: 3
 
-    readonly: true #garante que o container não possa modificar seu sistema de arquivos, aumentando a segurança
+    # readonly: true #garante que o container não possa modificar seu sistema de arquivos, aumentando a segurança
   
     #stdin_open: true # para mcp STDIO
     #tty: true #mantém o processo iterativo aberto
